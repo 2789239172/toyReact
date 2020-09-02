@@ -14,7 +14,11 @@ class ElementWrapper {
     if (ref.test(name)) {
       this.root.addEventListener(RegExp.$1.toLowerCase(), value)
     } else {
-      this.root.setAttribute(name, value)
+      if (name === 'className') {
+        this.root.setAttribute('class', value)
+      } else {
+        this.root.setAttribute(name, value)
+      }
     }
   }
 
@@ -65,11 +69,24 @@ export class Component {
 
     // this.render() => createElement() => ElementWrapper....
     this.render()[RENDER_TO_DOM](range)
-  }
+  } 
 
   rerender() {
-    this._range.deleteContents()
-    this[RENDER_TO_DOM](this._range)
+    /*
+      全空的range如果有相邻的range会被相邻的吞并
+      下次插入时会被后边的range包含进去
+      此时需要保证range时不空的
+    * */
+
+    let oldRange = this._range 
+    
+    let range = new Range()
+    range.setStart(oldRange.startContainer, oldRange.startOffset)
+    range.setEnd(oldRange.startContainer, oldRange.startOffset)
+    this[RENDER_TO_DOM](range)
+
+    oldRange.setStart(range.endContainer, range.endOffset)
+    oldRange.deleteContents()
   }
 
   setState(newState) {
@@ -112,9 +129,9 @@ export function createElement(type, attributes, ...children) {
 
   let insertChildren = children => {
     for (const item of children) {
-      // if (item === null) {
-        // continue
-      // }
+      if (item === null) {
+        continue
+      }
       if (typeof item === 'string' || typeof item === 'number') {
         item = new TextWrapper(item)
       }
