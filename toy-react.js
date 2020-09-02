@@ -1,3 +1,6 @@
+//使用Symbol来设置私有属性使其不易被访问到
+const RENDER_TO_DOM = Symbol('render to dom')
+
 
 //元素结点包装盒子
 class ElementWrapper {
@@ -10,15 +13,27 @@ class ElementWrapper {
   }
 
   appendChild(component) {
-    this.root.appendChild(component.root)
+    let range = new Range()
+    range.setStart(this.root, this.root.childNodes.length)
+    range.setEnd(this.root, this.root.childNodes.length)
+    component[RENDER_TO_DOM](range)
   }
 
+  [RENDER_TO_DOM](range) {
+    range.deleteContents()
+    range.insertNode(this.root)
+  }
 }
 
 //文本结点包装盒子
 class TextWrapper {
   constructor(content) {
     this.root = document.createTextNode(content)
+  }
+
+  [RENDER_TO_DOM](range) {
+    range.deleteContents()
+    range.insertNode(this.root)
   }
 }
 
@@ -38,15 +53,9 @@ export class Component {
     this.children.push(component)
   }
 
-  _renderToDOM(range) {
-
-  }
-
-  get root() {
-    if(!this._root) {
-      this._root = this.render().root
-    }
-    return this._root
+  [RENDER_TO_DOM](range) {
+    // this.render() => ElementWrapper
+    this.render()[RENDER_TO_DOM](range)
   }
 }
 
@@ -89,5 +98,13 @@ export function createElement(type, attributes, ...children) {
 
 // 挂载到页面
 export function render(component, parentElement) {
-  parentElement.appendChild(component.root)
+  let range = new Range()
+  range.setStart(parentElement, 0)
+  range.setEnd(parentElement, parentElement.childNodes.length)
+  component[RENDER_TO_DOM](range)
 } 
+
+/**
+ * createElement => MyComponent (ElementWrapper (TextWrapper) )
+ * render => MyComponent insertTo Body
+*/
