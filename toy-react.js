@@ -9,7 +9,13 @@ class ElementWrapper {
   }
 
   setAttribute(name, value) {
-    this.root.setAttribute(name, value)
+    //\s 查找空白字符, \S查找非空白字符, +匹配任何包含至少一个 n 的字符串。
+    let ref = /^on([\s\S]+)$/
+    if (ref.test(name)) {
+      this.root.addEventListener(RegExp.$1.toLowerCase(), value)
+    } else {
+      this.root.setAttribute(name, value)
+    }
   }
 
   appendChild(component) {
@@ -43,6 +49,7 @@ export class Component {
     this.props = Object.create(null) //不会有__proto__
     this.children = []
     this._root = null
+    this._range = null
   }
 
   setAttribute(name, value) {
@@ -54,8 +61,36 @@ export class Component {
   }
 
   [RENDER_TO_DOM](range) {
-    // this.render() => ElementWrapper
+    this._range = range
+
+    // this.render() => createElement() => ElementWrapper....
     this.render()[RENDER_TO_DOM](range)
+  }
+
+  rerender() {
+    this._range.deleteContents()
+    this[RENDER_TO_DOM](this._range)
+  }
+
+  setState(newState) {
+    if (typeof this.state !== 'object' || this.state === null) {
+        this.state = newState
+        this.rerender()
+        return 
+    }
+
+    //合并
+    let merge = (oldState, newState) => {
+      for(let key in newState) {
+        if (oldState[key] === null || typeof oldState[key] !== 'object') {
+          oldState[key] = newState[key]
+        } else {
+          merge(oldState[key], newState[key])
+        }
+      }
+    }
+    merge(this.state, newState)
+    this.rerender()
   }
 }
 
@@ -77,7 +112,10 @@ export function createElement(type, attributes, ...children) {
 
   let insertChildren = children => {
     for (const item of children) {
-      if (typeof item === 'string') {
+      // if (item === null) {
+        // continue
+      // }
+      if (typeof item === 'string' || typeof item === 'number') {
         item = new TextWrapper(item)
       }
 
