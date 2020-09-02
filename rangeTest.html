@@ -34,12 +34,13 @@
       选中了第一个li节点
       开始范围从第一个子节点向后偏移一个位置从第二个子节点开始(第一个li)
       结束范围从第一个子节点开始向后偏移两个位置(第二个回车)
-      私以为这个范围类似于数组的slice包含起始位置不包含结束位置
+      两个偏移位置相等则为空, 
+      私以为内容区域为结束位置偏移量-开始位置偏移量
     */  
-    // range.setStart(ul, 1) 
-    // range.setEnd(ul, 2)
+    range.setStart(ul, 1)
+    range.setEnd(ul, 1)
 
-    // range.deleteContents() 
+    range.deleteContents() 
     // console.log(ul.childNodes)
 
 
@@ -50,9 +51,9 @@
     // range.setStart(ul, 1) 
     // range.setEnd(ul, ul.childNodes.length)
 
-    let span = document.createElement('span')
-    span.innerText = '插入'
-    range.insertNode(span)
+    // let span = document.createElement('span')
+    // span.innerText = '插入'
+    // range.insertNode(span)
     console.log(ul.childNodes)
 
   </script>

@@ -1,6 +1,13 @@
 //使用Symbol来设置私有属性使其不易被访问到
 const RENDER_TO_DOM = Symbol('render to dom')
+function replaceContent(range, node) {
+  range.insertNode(node)
+  range.setStartAfter(node) //将范围的起点设置在 node 之后
+  range.deleteContents()
 
+  range.setStartBefore(node) //将范围的起点设置在 node 之前
+  range.setEndAfter(node) //将范围的终点设置在 node 之前
+}
 
 // 自定义组件的祖类
 export class Component {
@@ -21,27 +28,65 @@ export class Component {
 
   [RENDER_TO_DOM](range) {
     this._range = range
-
-    // this.render() => createElement() => ElementWrapper....
-    this.render()[RENDER_TO_DOM](range)
+    this._vdom = this.vdom
+    this._vdom[RENDER_TO_DOM](range)
   }
 
-  rerender() {
-    /*
-      全空的range如果有相邻的range会被相邻的吞并
-      下次插入时会被后边的range包含进去
-      此时需要保证range时不空的
-    * */
+  update() {
+    let isSameNode = (oldNode, newNode) => {
+      if (oldNode.type !== newNode.type) {
+        return false
+      }
+      for (const name in newNode.props) {
+        if (newNode.props[name] !== oldNode.props[name]) {
+          return false
+        }
+      }
+      if (Object.keys(oldNode.props).length !== Object.keys(newNode.props).length) {
+        return false
+      }
 
-    let oldRange = this._range
+      if (newNode.type === '#text') {
+        if (newNode.content !== oldNode.content) {
+          return false
+        }
+      }
+      return true
+    }
+    let update = (oldNode, newNode) => {
+      //type, props, children 
+      //#text content 
+      if (!isSameNode(oldNode, newNode)) {
+        newNode[RENDER_TO_DOM](oldNode._range)
+        return
+      }
+      newNode._range = oldNode._range
+      let newChildren = newNode.vchildren
+      let oldChildren = oldNode.vchildren
 
-    let range = new Range()
-    range.setStart(oldRange.startContainer, oldRange.startOffset)
-    range.setEnd(oldRange.startContainer, oldRange.startOffset)
-    this[RENDER_TO_DOM](range)
+      if (!newChildren || !newChildren.length) {
+        return
+      }
 
-    oldRange.setStart(range.endContainer, range.endOffset)
-    oldRange.deleteContents()
+      let tailRange = oldChildren[oldChildren.length - 1]._range
+
+      for (let i = 0; i < newChildren.length; i++) {
+        let newChild = newChildren[i]
+        let oldChild = oldChildren[i]
+        if (i < oldChildren.length) {
+          update(oldChild, newChild)
+        } else {
+          let range = document.createRange()
+          range.setStart(tailRange.endContainer, tailRange.endOffset)
+          range.setEnd(tailRange.endContainer, tailRange.endOffset)
+          newChild[RENDER_TO_DOM](range)
+          tailRange = range
+        }
+      }
+    }
+    let vdom = this.vdom
+    update(this._vdom, vdom)
+    this._vdom = vdom
   }
 
   setState(newState) {
@@ -62,15 +107,11 @@ export class Component {
       }
     }
     merge(this.state, newState)
-    this.rerender()
+    this.update()
   }
 
   get vdom() {
     return this.render().vdom
-  }
-
-  get vchildren() {
-    return this.children.map(child => child.vdom)
   }
 
 }
@@ -80,11 +121,11 @@ class ElementWrapper extends Component {
   constructor(type) {
     super(type)
     this.type = type
+    this._range = null
   }
 
   [RENDER_TO_DOM](range) {
-    range.deleteContents()
-
+    this._range = range
     let root = document.createElement(this.type)
 
     // 设置props
@@ -101,19 +142,22 @@ class ElementWrapper extends Component {
         }
       }
     }
+    if (!this.vchildren) {
+      this.vchildren = this.children.map(child => child.vdom)
+    }
 
     //插入child
-    for (const child of this.children) {
+    for (const child of this.vchildren) {
       let childRange = new Range()
       childRange.setStart(root, root.childNodes.length)
       childRange.setEnd(root, root.childNodes.length)
       child[RENDER_TO_DOM](childRange)
     }
-
-    range.insertNode(root)
+    replaceContent(range, root)
   }
 
   get vdom() {
+    this.vchildren = this.children.map(child => child.vdom)
     return this
   }
 }
@@ -124,12 +168,13 @@ class TextWrapper extends Component {
     super(content)
     this.type = '#text',
       this.content = content
-    this.root = document.createTextNode(content)
   }
 
   [RENDER_TO_DOM](range) {
-    range.deleteContents()
-    range.insertNode(this.root)
+    this._range = range
+    let root = document.createTextNode(this.content)
+
+    replaceContent(range, root)
   }
   get vdom() {
     return this
