@@ -2,51 +2,6 @@
 const RENDER_TO_DOM = Symbol('render to dom')
 
 
-//元素结点包装盒子
-class ElementWrapper {
-  constructor(type) {
-    this.root = document.createElement(type)
-  }
-
-  setAttribute(name, value) {
-    //\s 查找空白字符, \S查找非空白字符, +匹配任何包含至少一个 n 的字符串。
-    let ref = /^on([\s\S]+)$/
-    if (ref.test(name)) {
-      this.root.addEventListener(RegExp.$1.toLowerCase(), value)
-    } else {
-      if (name === 'className') {
-        this.root.setAttribute('class', value)
-      } else {
-        this.root.setAttribute(name, value)
-      }
-    }
-  }
-
-  appendChild(component) {
-    let range = new Range()
-    range.setStart(this.root, this.root.childNodes.length)
-    range.setEnd(this.root, this.root.childNodes.length)
-    component[RENDER_TO_DOM](range)
-  }
-
-  [RENDER_TO_DOM](range) {
-    range.deleteContents()
-    range.insertNode(this.root)
-  }
-}
-
-//文本结点包装盒子
-class TextWrapper {
-  constructor(content) {
-    this.root = document.createTextNode(content)
-  }
-
-  [RENDER_TO_DOM](range) {
-    range.deleteContents()
-    range.insertNode(this.root)
-  }
-}
-
 // 自定义组件的祖类
 export class Component {
   constructor() {
@@ -69,7 +24,7 @@ export class Component {
 
     // this.render() => createElement() => ElementWrapper....
     this.render()[RENDER_TO_DOM](range)
-  } 
+  }
 
   rerender() {
     /*
@@ -78,8 +33,8 @@ export class Component {
       此时需要保证range时不空的
     * */
 
-    let oldRange = this._range 
-    
+    let oldRange = this._range
+
     let range = new Range()
     range.setStart(oldRange.startContainer, oldRange.startOffset)
     range.setEnd(oldRange.startContainer, oldRange.startOffset)
@@ -91,14 +46,14 @@ export class Component {
 
   setState(newState) {
     if (typeof this.state !== 'object' || this.state === null) {
-        this.state = newState
-        this.rerender()
-        return 
+      this.state = newState
+      this.rerender()
+      return
     }
 
     //合并
     let merge = (oldState, newState) => {
-      for(let key in newState) {
+      for (let key in newState) {
         if (oldState[key] === null || typeof oldState[key] !== 'object') {
           oldState[key] = newState[key]
         } else {
@@ -109,7 +64,78 @@ export class Component {
     merge(this.state, newState)
     this.rerender()
   }
+
+  get vdom() {
+    return this.render().vdom
+  }
+
+  get vchildren() {
+    return this.children.map(child => child.vdom)
+  }
+
 }
+
+//元素结点包装盒子
+class ElementWrapper extends Component {
+  constructor(type) {
+    super(type)
+    this.type = type
+  }
+
+  [RENDER_TO_DOM](range) {
+    range.deleteContents()
+
+    let root = document.createElement(this.type)
+
+    // 设置props
+    for (let name in this.props) {
+      let value = this.props[name]
+      let ref = /^on([\s\S]+)$/
+      if (ref.test(name)) {
+        root.addEventListener(RegExp.$1.toLowerCase(), value)
+      } else {
+        if (name === 'className') {
+          root.setAttribute('class', value)
+        } else {
+          root.setAttribute(name, value)
+        }
+      }
+    }
+
+    //插入child
+    for (const child of this.children) {
+      let childRange = new Range()
+      childRange.setStart(root, root.childNodes.length)
+      childRange.setEnd(root, root.childNodes.length)
+      child[RENDER_TO_DOM](childRange)
+    }
+
+    range.insertNode(root)
+  }
+
+  get vdom() {
+    return this
+  }
+}
+
+//文本结点包装盒子
+class TextWrapper extends Component {
+  constructor(content) {
+    super(content)
+    this.type = '#text',
+      this.content = content
+    this.root = document.createTextNode(content)
+  }
+
+  [RENDER_TO_DOM](range) {
+    range.deleteContents()
+    range.insertNode(this.root)
+  }
+  get vdom() {
+    return this
+  }
+}
+
 
 //实现React.createElement解析函数
 export function createElement(type, attributes, ...children) {
@@ -157,7 +183,7 @@ export function render(component, parentElement) {
   range.setStart(parentElement, 0)
   range.setEnd(parentElement, parentElement.childNodes.length)
   component[RENDER_TO_DOM](range)
-} 
+}
 
 /**
  * createElement => MyComponent (ElementWrapper (TextWrapper) )
