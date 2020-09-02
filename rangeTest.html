@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <ul>
+    <li>haha1</li>
+    <li>haha2</li>
+    <li>haha3</li>
+    <li>haha4</li>
+  </ul>
+  <script>
+    /*
+      + range是dom2中的  “范围”接口
+        - 通过范围可以选择文档中的一个区域，而不必考虑节点的界限
+        - 在常规的 DOM操作不能更有效地修改文档时，使用范围往往可以达到目的
+      + 要创建复杂的范围就得使用 setStart() 和 setEnd() 方法。这两个方法都接受两个参数：一个参
+照节点和一个偏移量值
+      + deleteContents() 。
+        -这个方法能够从文档中删除范围所包含的内容
+      + insertNode()
+        - 方法将元素插入到范围开始位置
+    */
+
+    let ul = document.querySelector('ul')
+    console.log(ul.childNodes)
+
+    let range = new Range()
+
+    /*
+      选中了第一个li节点
+      开始范围从第一个子节点向后偏移一个位置从第二个子节点开始(第一个li)
+      结束范围从第一个子节点开始向后偏移两个位置(第二个回车)
+      私以为这个范围类似于数组的slice包含起始位置不包含结束位置
+    */  
+    // range.setStart(ul, 1) 
+    // range.setEnd(ul, 2)
+
+    // range.deleteContents() 
+    // console.log(ul.childNodes)
+
+
+    // range.setStart(ul, ul.childNodes.length) 
+    // range.setEnd(ul, ul.childNodes.length)
+    // range.setStart(ul, 0) 
+    // range.setEnd(ul, 2)
+    // range.setStart(ul, 1) 
+    // range.setEnd(ul, ul.childNodes.length)
+
+    let span = document.createElement('span')
+    span.innerText = '插入'
+    range.insertNode(span)
+    console.log(ul.childNodes)
+
+  </script>
+</body>
+</html>
